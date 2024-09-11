@@ -70,13 +70,20 @@ app.post("/login", async (req, res) => {
     if(checkUser.rows.length > 0){
       const user = checkUser.rows[0];
       const storedPassword = user.user_password;
-  
-      if(uPassword === storedPassword){
-        res.render("secrets.ejs");
-      }
-      else{
-        res.send("Password is incorrect");
-      }
+
+      bcrypt.compare(uPassword, storedPassword, (err, checkUser) => {
+        if(err){
+          console.log("Error comparing passwords: ", err);
+        }
+        else{
+          if(checkUser){
+            res.render("secrets.ejs");
+          }
+          else{
+            res.send("Incorrect Password");
+          }
+        }
+      });
     }
     else{
       res.send("User not found");
