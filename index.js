@@ -58,21 +58,28 @@ app.post("/login", async (req, res) => {
   let uName = req.body.username;
   let uPassword = req.body.password;
 
-  const checkUser = await db.query(
-    "SELECT * FROM users WHERE user_email = $1", [uName]
-  );
-
-  // if (checkUser){
-  //   const userPass = checkUser.rows.;
-  //   if (userPass == uPassword){
-  //     res.render("secrets.ejs");
-  //     console.log(`Username is ${uName} and Password is ${uPassword}`);
-  //   }
-  //   else{
-  //     res.send("Wrong password. Try again");
-  //   }
-  // }
+  try{
+    const checkUser = await db.query(
+      "SELECT * FROM users WHERE user_email = $1", [uName]
+    );
   
+    if(checkUser.rows.length > 0){
+      const user = checkUser.rows[0];
+      const storedPassword = user.user_password;
+  
+      if(uPassword === storedPassword){
+        res.render("secrets.ejs");
+      }
+      else{
+        res.send("Password is incorrect");
+      }
+    }
+    else{
+      res.send("User not found");
+    }  
+  }catch(err){
+    console.log(err);
+  }
 });
 
 app.listen(port, () => {
