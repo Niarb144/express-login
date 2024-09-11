@@ -1,9 +1,11 @@
 import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
+import bcrypt from "bcrypt";
 
 const app = express();
 const port = 3000;
+const saltRounds = 10;
 const db = new pg.Client({
   user : "postgres",
   host : "localhost",
@@ -41,11 +43,13 @@ app.post("/register", async (req, res) => {
       res.send("Email already exists. Try Loging in");
     }
     else{
-      console.log(`Username is ${uName} and Password is ${uPassword}`);
-      const result = await db.query(
-        "INSERT INTO users (user_email, user_password) VALUES ($1, $2)" , [uName, uPassword]
-      );
-      res.render("secrets.ejs");
+      bcrypt.hash(uPassword, saltRounds, async(err, hash) => {
+        console.log(`Username is ${uName} and Password is ${uPassword}`);
+        const result = await db.query(
+          "INSERT INTO users (user_email, user_password) VALUES ($1, $2)" , [uName, hash]
+        );
+        res.render("secrets.ejs");
+      })
     }
   }
  catch(err){
