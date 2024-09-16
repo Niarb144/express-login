@@ -17,6 +17,9 @@ app.use(session({
   secret: "RJENEVIZ",
   resave: false,
   saveUninitialized: true,
+  cookie: {
+    maxAge: 1000*60*60*24
+  }
   })
 );
 
@@ -45,6 +48,7 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/secrets", (req, res) => {
+  console.log(req.user);
   if(req.isAuthenticated()){
     res.render("secrets.ejs");
   }
@@ -67,11 +71,21 @@ app.post("/register", async (req, res) => {
     }
     else{
       bcrypt.hash(uPassword, saltRounds, async(err, hash) => {
-        console.log(`Username is ${uName} and Password is ${uPassword}`);
-        const result = await db.query(
-          "INSERT INTO users (user_email, user_password) VALUES ($1, $2)" , [uName, hash]
-        );
-        res.render("secrets.ejs");
+        if(err){
+          console.log("Error hashing password", err);
+        }
+        else{
+          const result = await db.query(
+            "INSERT INTO users (user_email, user_password) VALUES ($1, $2)" , [uName, hash]
+          );
+          const user = result.rows[0];
+          req.login(user, (err)=>{
+            console.log(err)
+            res.redirect("/secrets");
+          })
+        }
+        
+        
       })
     }
   }
@@ -81,41 +95,50 @@ app.post("/register", async (req, res) => {
   
 });
 
-app.post("/login", async (req, res) => {
-  let uName = req.body.username;
-  let uPassword = req.body.password;
+app.post("/login", passport.authenticate("local", {
+  successRedirect: "/secrets",
+  failureRedirect: "/login",
+}));
 
+passport.use(new Strategy(async function verify(username, password, cb){
   try{
     const checkUser = await db.query(
-      "SELECT * FROM users WHERE user_email = $1", [uName]
+      "SELECT * FROM users WHERE user_email = $1", [username]
     );
   
     if(checkUser.rows.length > 0){
       const user = checkUser.rows[0];
       const storedPassword = user.user_password;
 
-      bcrypt.compare(uPassword, storedPassword, (err, checkUser) => {
+      bcrypt.compare(password, storedPassword, (err, checkUser) => {
         if(err){
-          console.log("Error comparing passwords: ", err);
+          return cb(err);
         }
         else{
           if(checkUser){
-            res.render("secrets.ejs");
+            return cb(null, user);
           }
           else{
-            res.send("Incorrect Password");
+            return cb(null, false);
           }
         }
       });
     }
     else{
-      res.send("User not found");
+      return cb("User not found");
     }  
   }catch(err){
-    console.log(err);
+    return cb(err);
   }
+}));
+
+passport.serializeUser((user, cb) =>{
+  cb(null, user);
 });
 
+passport.deserializeUser((user, cb) =>{
+  cb(null, user);
+});
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
